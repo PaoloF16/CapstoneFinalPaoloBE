@@ -12,6 +12,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/tables")
+@CrossOrigin(origins = "http://localhost:5173")
 public class TableController {
 
     @Autowired
