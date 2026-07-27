@@ -32,10 +32,20 @@ public class Order {
     private OrderStatus status = OrderStatus.PENDING;
 
     @Builder.Default
+    private Double subtotal = 0.0;
+
+    @Builder.Default
+    private Double discount = 0.0; // Valor del descuento (monto o porcentaje)
+
+    private String discountType; // "PERCENTAGE" o "FIXED"
+
+    @Builder.Default
     private Double total = 0.0;
 
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    private LocalDateTime closedAt;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

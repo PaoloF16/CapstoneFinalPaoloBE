@@ -1,5 +1,6 @@
 package PaoloF16.BeCapstoneFinal.service;
 
+import PaoloF16.BeCapstoneFinal.dto.CheckoutRequestDTO;
 import PaoloF16.BeCapstoneFinal.dto.CreateOrderDTO;
 import PaoloF16.BeCapstoneFinal.dto.OrderItemRequestDTO;
 import PaoloF16.BeCapstoneFinal.entities.*;
@@ -64,6 +65,55 @@ public class OrderService {
 
         // Actualizar el estado de la mesa a OCUPADA
         table.setStatus(TableStatus.OCCUPIED);
+        tableRepository.save(table);
+
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order checkoutOrder(UUID orderId, CheckoutRequestDTO checkoutDto) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Orden no encontrada con id: " + orderId));
+
+        if (order.getStatus() == OrderStatus.PAID) {
+            throw new RuntimeException("La orden ya ha sido pagada previamente.");
+        }
+
+        // 1. Calcular subtotal basado en los items de la orden
+        double subtotal = order.getItems().stream()
+                .mapToDouble(item -> item.getUnitPrice() * item.getQuantity())
+                .sum();
+
+        order.setSubtotal(subtotal);
+
+        // 2. Procesar descuento opcional
+        double calculatedDiscount = 0.0;
+        if (checkoutDto != null && checkoutDto.getDiscountValue() != null && checkoutDto.getDiscountValue() > 0) {
+            String type = checkoutDto.getDiscountType() != null ? checkoutDto.getDiscountType().toUpperCase() : "FIXED";
+            order.setDiscountType(type);
+            order.setDiscount(checkoutDto.getDiscountValue());
+
+            if ("PERCENTAGE".equals(type)) {
+                calculatedDiscount = subtotal * (checkoutDto.getDiscountValue() / 100.0);
+            } else { // "FIXED"
+                calculatedDiscount = checkoutDto.getDiscountValue();
+            }
+        } else {
+            order.setDiscount(0.0);
+            order.setDiscountType("NONE");
+        }
+
+        // 3. Calcular total final (asegurando que no sea negativo)
+        double total = Math.max(0.0, subtotal - calculatedDiscount);
+        order.setTotal(total);
+
+        // 4. Cambiar estado de la orden a PAGADO y registrar fecha de cierre
+        order.setStatus(OrderStatus.PAID);
+        order.setClosedAt(LocalDateTime.now());
+
+        // 5. Liberar automáticamente la mesa asignada (Estado LIBRE / AVAILABLE)
+        RestaurantTable table = order.getTable();
+        table.setStatus(TableStatus.AVAILABLE);
         tableRepository.save(table);
 
         return orderRepository.save(order);
