@@ -1,22 +1,16 @@
+// src/main/java/PaoloF16/BeCapstoneFinal/service/OrderService.java
 package PaoloF16.BeCapstoneFinal.service;
 
-import PaoloF16.BeCapstoneFinal.dto.CheckoutRequestDTO;
-import PaoloF16.BeCapstoneFinal.dto.CreateOrderDTO;
-import PaoloF16.BeCapstoneFinal.dto.OrderItemRequestDTO;
 import PaoloF16.BeCapstoneFinal.entities.*;
 import PaoloF16.BeCapstoneFinal.enums.OrderStatus;
 import PaoloF16.BeCapstoneFinal.enums.TableStatus;
-import PaoloF16.BeCapstoneFinal.repository.OrderRepository;
-import PaoloF16.BeCapstoneFinal.repository.ProductRepository;
-import PaoloF16.BeCapstoneFinal.repository.TableRepository;
+import PaoloF16.BeCapstoneFinal.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class OrderService {
@@ -30,124 +24,104 @@ public class OrderService {
     @Autowired
     private ProductRepository productRepository;
 
+    // 1. CREAR ORDEN Y CAMBIAR MESA A OCUPADA
     @Transactional
-    public Order createOrder(CreateOrderDTO dto) {
-        RestaurantTable table = tableRepository.findById(dto.getTableId())
-                .orElseThrow(() -> new RuntimeException("Mesa no encontrada con id: " + dto.getTableId()));
+    public Order createOrder(UUID tableId, List<Map<String, Object>> items) {
+        RestaurantTable table = tableRepository.findById(tableId)
+                .orElseThrow(() -> new RuntimeException("Mesa no encontrada: " + tableId));
+
+        // Marcar mesa como OCUPADA en la base de datos
+        table.setStatus(TableStatus.OCCUPIED);
+        tableRepository.save(table);
 
         Order order = Order.builder()
                 .table(table)
                 .status(OrderStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .subtotal(0.0)
+                .discount(0.0)
+                .total(0.0)
                 .items(new ArrayList<>())
+                .createdAt(LocalDateTime.now()) // 👈 CORREGIDO: LocalDateTime.now()
                 .build();
 
-        double total = 0.0;
+        Order savedOrder = orderRepository.save(order);
 
-        if (dto.getItems() != null && !dto.getItems().isEmpty()) {
-            for (OrderItemRequestDTO itemDto : dto.getItems()) {
-                Product product = productRepository.findById(itemDto.getProductId())
-                        .orElseThrow(() -> new RuntimeException("Producto no encontrado con id: " + itemDto.getProductId()));
+        if (items != null && !items.isEmpty()) {
+            return updateOrderItems(savedOrder.getId(), items);
+        }
 
-                OrderItem item = OrderItem.builder()
+        return savedOrder;
+    }
+
+    // 2. ACTUALIZAR ITEMS DE LA COMANDA
+    @Transactional
+    public Order updateOrderItems(UUID orderId, List<Map<String, Object>> items) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Orden no encontrada: " + orderId));
+
+        order.getItems().clear();
+        double subtotal = 0.0;
+
+        if (items != null) {
+            for (Map<String, Object> itemReq : items) {
+                UUID productId = UUID.fromString(itemReq.get("productId").toString());
+                int quantity = Integer.parseInt(itemReq.get("quantity").toString());
+
+                Product product = productRepository.findById(productId)
+                        .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + productId));
+
+                OrderItem orderItem = OrderItem.builder()
                         .order(order)
                         .product(product)
-                        .quantity(itemDto.getQuantity())
+                        .quantity(quantity)
                         .unitPrice(product.getPrice())
                         .build();
 
-                order.getItems().add(item);
-                total += product.getPrice() * itemDto.getQuantity();
+                order.getItems().add(orderItem);
+                subtotal += product.getPrice() * quantity;
             }
         }
-
-        order.setTotal(total);
-
-        // Actualizar el estado de la mesa a OCUPADA
-        table.setStatus(TableStatus.OCCUPIED);
-        tableRepository.save(table);
-
-        return orderRepository.save(order);
-    }
-
-    @Transactional
-    public Order checkoutOrder(UUID orderId, CheckoutRequestDTO checkoutDto) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Orden no encontrada con id: " + orderId));
-
-        if (order.getStatus() == OrderStatus.PAID) {
-            throw new RuntimeException("La orden ya ha sido pagada previamente.");
-        }
-
-        // 1. Calcular subtotal basado en los items de la orden
-        double subtotal = order.getItems().stream()
-                .mapToDouble(item -> item.getUnitPrice() * item.getQuantity())
-                .sum();
 
         order.setSubtotal(subtotal);
-
-        // 2. Procesar descuento opcional
-        double calculatedDiscount = 0.0;
-        if (checkoutDto != null && checkoutDto.getDiscountValue() != null && checkoutDto.getDiscountValue() > 0) {
-            String type = checkoutDto.getDiscountType() != null ? checkoutDto.getDiscountType().toUpperCase() : "FIXED";
-            order.setDiscountType(type);
-            order.setDiscount(checkoutDto.getDiscountValue());
-
-            if ("PERCENTAGE".equals(type)) {
-                calculatedDiscount = subtotal * (checkoutDto.getDiscountValue() / 100.0);
-            } else { // "FIXED"
-                calculatedDiscount = checkoutDto.getDiscountValue();
-            }
-        } else {
-            order.setDiscount(0.0);
-            order.setDiscountType("NONE");
-        }
-
-        // 3. Calcular total final (asegurando que no sea negativo)
-        double total = Math.max(0.0, subtotal - calculatedDiscount);
-        order.setTotal(total);
-
-        // 4. Cambiar estado de la orden a PAGADO y registrar fecha de cierre
-        order.setStatus(OrderStatus.PAID);
-        order.setClosedAt(LocalDateTime.now());
-
-        // 5. Liberar automáticamente la mesa asignada (Estado LIBRE / AVAILABLE)
-        RestaurantTable table = order.getTable();
-        table.setStatus(TableStatus.AVAILABLE);
-        tableRepository.save(table);
+        double discount = order.getDiscount() != null ? order.getDiscount() : 0.0;
+        order.setTotal(Math.max(0.0, subtotal - discount));
 
         return orderRepository.save(order);
     }
 
+    // 3. OBTENER ORDEN ACTIVA DE LA MESA
     public Order getActiveOrderByTableId(UUID tableId) {
-        return orderRepository.findByTableIdAndStatusNot(tableId, OrderStatus.PAID)
-                .orElseThrow(() -> new RuntimeException("No hay una orden activa para la mesa con id: " + tableId));
+        return orderRepository.findFirstByTableIdAndStatusNotOrderByCreatedAtDesc(tableId, OrderStatus.PAID)
+                .orElse(null);
     }
 
+    // 4. CHECKOUT (COBRO) Y LIBERACIÓN AUTOMÁTICA DE MESA EN POSTGRESQL
     @Transactional
-    public Order updateOrderItems(UUID orderId, List<OrderItemRequestDTO> itemsDto) {
+    public Order checkoutOrder(UUID orderId, Map<String, Object> checkoutData) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Orden no encontrada con id: " + orderId));
+                .orElseThrow(() -> new RuntimeException("Orden no encontrada: " + orderId));
 
-        order.getItems().clear();
-        double total = 0.0;
-
-        for (OrderItemRequestDTO itemDto : itemsDto) {
-            Product product = productRepository.findById(itemDto.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Producto no encontrado con id: " + itemDto.getProductId()));
-
-            OrderItem item = OrderItem.builder()
-                    .order(order)
-                    .product(product)
-                    .quantity(itemDto.getQuantity())
-                    .unitPrice(product.getPrice())
-                    .build();
-
-            order.getItems().add(item);
-            total += product.getPrice() * itemDto.getQuantity();
+        Double discountPercent = 0.0;
+        if (checkoutData != null && checkoutData.containsKey("discountValue")) {
+            try {
+                discountPercent = Double.parseDouble(checkoutData.get("discountValue").toString());
+            } catch (Exception e) {
+                discountPercent = 0.0;
+            }
         }
 
-        order.setTotal(total);
+        double discountAmount = (order.getSubtotal() * discountPercent) / 100.0;
+        order.setDiscount(discountAmount);
+        order.setTotal(Math.max(0.0, order.getSubtotal() - discountAmount));
+        order.setStatus(OrderStatus.PAID);
+
+        // 💡 CAMBIAR MESA A ESTADO LIBRE EN BASE DE DATOS
+        RestaurantTable table = order.getTable();
+        if (table != null) {
+            table.setStatus(TableStatus.AVAILABLE);
+            tableRepository.save(table);
+        }
+
         return orderRepository.save(order);
     }
 }

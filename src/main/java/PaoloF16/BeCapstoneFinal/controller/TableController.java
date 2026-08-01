@@ -1,3 +1,4 @@
+// src/main/java/PaoloF16/BeCapstoneFinal/controller/TableController.java
 package PaoloF16.BeCapstoneFinal.controller;
 
 import PaoloF16.BeCapstoneFinal.entities.RestaurantTable;
@@ -28,9 +29,21 @@ public class TableController {
         return tableService.createTable(table);
     }
 
+    // --- ENDPOINT PARA EDITAR MESA ---
+    @PutMapping("/{id}")
+    public RestaurantTable updateTable(@PathVariable UUID id, @RequestBody RestaurantTable tableData) {
+        return tableService.updateTable(id, tableData);
+    }
+
     @PutMapping("/{id}/status")
     public RestaurantTable updateStatus(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         TableStatus status = TableStatus.valueOf(body.get("status"));
         return tableService.updateTableStatus(id, status);
+    }
+
+    // --- ENDPOINT PARA ELIMINAR MESA ---
+    @DeleteMapping("/{id}")
+    public void deleteTable(@PathVariable UUID id) {
+        tableService.deleteTable(id);
     }
 }

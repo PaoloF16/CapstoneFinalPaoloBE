@@ -6,6 +6,7 @@ import PaoloF16.BeCapstoneFinal.entities.Category;
 import PaoloF16.BeCapstoneFinal.entities.Product;
 import PaoloF16.BeCapstoneFinal.repository.CategoryRepository;
 import PaoloF16.BeCapstoneFinal.repository.ProductRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -69,5 +70,15 @@ public class MenuService {
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con el id: " + id));
         product.setIsAvailable(isAvailable);
         return productRepository.save(product);
+    }
+
+
+    @Transactional
+    public void deleteCategory(UUID id) {
+        // 1. Primero borras los productos vinculados a esta categoría
+        productRepository.deleteByCategoryId(id);
+
+        // 2. Luego borras la categoría
+        categoryRepository.deleteById(id);
     }
 }

@@ -10,4 +10,6 @@ import java.util.UUID;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByCategoryId(UUID categoryId);
+    // Para borrar todos los productos de esa categoría:
+    void deleteByCategoryId(UUID categoryId);
 }
