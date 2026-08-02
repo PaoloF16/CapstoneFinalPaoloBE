@@ -13,30 +13,30 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 @Configuration
-@EnableWebSecurity // 👈 Asegúrate de incluir esta anotación
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(customCorsConfigurationSource()))
-                .csrf(csrf -> csrf.disable()) // Desactiva CSRF
+                .cors(cors -> cors.configurationSource(customCorsSource())) // 👈 Usa este método explícito
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Permite Preflight
-                        .requestMatchers("/api/**").permitAll()                  // Permite todo lo que empiece por /api/
-                        .anyRequest().permitAll()                               // Desbloquea todas las peticiones
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/**").permitAll()
+                        .anyRequest().permitAll()
                 );
 
         return http.build();
     }
 
     @Bean
-    public CorsConfigurationSource customCorsConfigurationSource() {
+    public CorsConfigurationSource customCorsSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*")); // Permite cualquier header
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
