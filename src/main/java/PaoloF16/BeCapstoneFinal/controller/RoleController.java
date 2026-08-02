@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/roles")
@@ -26,8 +27,14 @@ public class RoleController {
 
     // Crear un nuevo rol (ej: ADMINISTRADOR, GARZON, CAJERO, COCINA)
     @PostMapping
-    public ResponseEntity<Role> createRole(@RequestBody Role role) {
-        Role newRole = userService.createRole(role);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newRole);
+    public ResponseEntity<?> createRole(@RequestBody Role role) {
+        try {
+            Role newRole = userService.createRole(role);
+            return ResponseEntity.status(HttpStatus.CREATED).body(newRole);
+        } catch (IllegalArgumentException e) {
+            // Devuelve un error 400 (Bad Request) en formato JSON
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 }

@@ -23,6 +23,14 @@ public class UserService {
     public List<Role> getAllRoles() { return roleRepository.findAll(); }
 
     public Role createRole(Role role) {
+        // Normalizar el nombre (ej. eliminar espacios al inicio y final)
+        String roleName = role.getName().trim();
+
+        if (roleRepository.existsByNameIgnoreCase(roleName)) {
+            throw new IllegalArgumentException("El rol '" + roleName + "' ya existe en el sistema.");
+        }
+
+        role.setName(roleName);
         return roleRepository.save(role);
     }
 

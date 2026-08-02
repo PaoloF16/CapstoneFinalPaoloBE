@@ -40,6 +40,11 @@ public class MenuService {
     }
 
     public Product createProduct(Product product) {
+        if (product.getCategory() != null && product.getCategory().getId() != null) {
+            Category category = categoryRepository.findById(product.getCategory().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada: " + product.getCategory().getId()));
+            product.setCategory(category);
+        }
         return productRepository.save(product);
     }
 

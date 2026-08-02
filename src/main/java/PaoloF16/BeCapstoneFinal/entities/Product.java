@@ -1,6 +1,6 @@
 package PaoloF16.BeCapstoneFinal.entities;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,7 +29,6 @@ public class Product {
     private Double price;
 
     private Double originalPrice;
-
     private String imageUrl;
 
     @Builder.Default
@@ -43,9 +42,8 @@ public class Product {
 
     private String discountBadge;
 
+    // 💡 PERMITIR LECTURA Y ESCRITURA EN JSON
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", nullable = false)
-    @JsonIgnore
     private Category category;
-
 }
