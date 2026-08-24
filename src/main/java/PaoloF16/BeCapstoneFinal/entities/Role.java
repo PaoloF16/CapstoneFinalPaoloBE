@@ -1,10 +1,20 @@
+// src/main/java/PaoloF16/BeCapstoneFinal/entities/Role.java
 package PaoloF16.BeCapstoneFinal.entities;
 
 import jakarta.persistence.*;
+import lombok.*;
+
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
 @Table(name = "roles")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Role {
 
     @Id
@@ -12,15 +22,13 @@ public class Role {
     private UUID id;
 
     @Column(unique = true, nullable = false)
-    private String name; // ej: "ADMINISTRADOR", "GARZON", "CAJERO"
+    private String name; // ej: "SUPER_ADMIN", "ADMIN", "MESERO", etc.
 
     private String description;
 
-    // Getters y Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"))
+    @Column(name = "permission")
+    @Builder.Default
+    private Set<String> permissions = new HashSet<>();
 }
