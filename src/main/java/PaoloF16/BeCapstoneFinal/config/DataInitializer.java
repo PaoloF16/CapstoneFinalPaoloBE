@@ -7,6 +7,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,22 +27,22 @@ public class DataInitializer {
     @Bean
     CommandLineRunner initRoles(RoleRepository roleRepository) {
         return args -> {
-            // 1. SUPER_ADMIN (Todos los permisos)
+            // 1. SUPER_ADMIN
             if (!roleRepository.existsByNameIgnoreCase("SUPER_ADMIN")) {
                 Role superAdmin = Role.builder()
                         .name("SUPER_ADMIN")
                         .description("Acceso total al sistema y configuraciones críticas")
-                        .permissions(new HashSet<>(ALL_PERMISSIONS))
+                        .permissions(new ArrayList<>(ALL_PERMISSIONS)) // 👈 Cambiar HashSet por ArrayList
                         .build();
                 roleRepository.save(superAdmin);
             }
 
-            // 2. ADMIN (Permisos operativos y de gestión)
+            // 2. ADMIN
             if (!roleRepository.existsByNameIgnoreCase("ADMIN")) {
                 Role admin = Role.builder()
                         .name("ADMIN")
-                        .description("Administrador del restaurante con permisos de gestión")
-                        .permissions(new HashSet<>(ALL_PERMISSIONS))
+                        .description("Permisos operativos y de gestión")
+                        .permissions(new ArrayList<>(ALL_PERMISSIONS)) // 👈 Cambiar HashSet por ArrayList
                         .build();
                 roleRepository.save(admin);
             }

@@ -1,11 +1,9 @@
-// src/main/java/PaoloF16/BeCapstoneFinal/entities/Role.java
 package PaoloF16.BeCapstoneFinal.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -14,21 +12,20 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder // 👈 Habilita Role.builder()
 public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(unique = true, nullable = false)
-    private String name; // ej: "SUPER_ADMIN", "ADMIN", "MESERO", etc.
+    @Column(nullable = false, unique = true)
+    private String name;
 
     private String description;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"))
     @Column(name = "permission")
-    @Builder.Default
-    private Set<String> permissions = new HashSet<>();
+    private List<String> permissions;
 }

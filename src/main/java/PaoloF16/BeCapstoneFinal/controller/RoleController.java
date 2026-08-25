@@ -2,7 +2,7 @@
 package PaoloF16.BeCapstoneFinal.controller;
 
 import PaoloF16.BeCapstoneFinal.entities.Role;
-import PaoloF16.BeCapstoneFinal.service.UserService;
+import PaoloF16.BeCapstoneFinal.repository.RoleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,43 +18,56 @@ import java.util.UUID;
 public class RoleController {
 
     @Autowired
-    private UserService userService;
+    private RoleRepository roleRepository;
 
+    // 1. Obtener todos los roles
     @GetMapping
-    public ResponseEntity<List<Role>> getAllRoles() {
-        return ResponseEntity.ok(userService.getAllRoles());
+    public List<Role> getAllRoles() {
+        return roleRepository.findAll();
     }
 
+    // 2. Crear rol validando duplicados con existsByNameIgnoreCase
     @PostMapping
     public ResponseEntity<?> createRole(@RequestBody Role role) {
         try {
-            Role newRole = userService.createRole(role);
-            return ResponseEntity.status(HttpStatus.CREATED).body(newRole);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", e.getMessage()));
+            if (role.getName() == null || role.getName().trim().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "El nombre del rol es obligatorio"));
+            }
+
+            String formattedName = role.getName().trim().toUpperCase();
+
+            if (roleRepository.existsByNameIgnoreCase(formattedName)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "El rol '" + formattedName + "' ya existe"));
+            }
+
+            role.setName(formattedName);
+            Role savedRole = roleRepository.save(role);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedRole);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Error al crear el rol: " + e.getMessage()));
         }
     }
 
+    // 3. Modificar rol existente
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateRole(@PathVariable UUID id, @RequestBody Role role) {
-        try {
-            Role updated = userService.updateRole(id, role);
-            return ResponseEntity.ok(updated);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", e.getMessage()));
-        }
+    public ResponseEntity<?> updateRole(@PathVariable UUID id, @RequestBody Role roleDetails) {
+        return roleRepository.findById(id).map(role -> {
+            if (roleDetails.getName() != null && !roleDetails.getName().trim().isBlank()) {
+                role.setName(roleDetails.getName().trim().toUpperCase());
+            }
+            role.setDescription(roleDetails.getDescription());
+            role.setPermissions(roleDetails.getPermissions());
+            return ResponseEntity.ok(roleRepository.save(role));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
+    // 4. Eliminar rol
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteRole(@PathVariable UUID id) {
-        try {
-            userService.deleteRole(id);
+        if (roleRepository.existsById(id)) {
+            roleRepository.deleteById(id);
             return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", e.getMessage()));
         }
+        return ResponseEntity.notFound().build();
     }
 }

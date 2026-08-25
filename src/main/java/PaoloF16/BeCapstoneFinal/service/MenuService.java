@@ -25,7 +25,6 @@ public class MenuService {
     @Autowired
     private OrderItemRepository orderItemRepository;
 
-    // --- MÉTODOS DE CATEGORÍAS ---
     public List<Category> getAllCategories() {
         return categoryRepository.findAll();
     }
@@ -44,7 +43,6 @@ public class MenuService {
         categoryRepository.deleteById(id);
     }
 
-    // --- MÉTODOS DE PRODUCTOS ---
     public List<Product> getAllProducts(UUID categoryId) {
         if (categoryId != null) {
             return productRepository.findByCategoryId(categoryId);
@@ -61,6 +59,8 @@ public class MenuService {
         return productRepository.save(product);
     }
 
+    // 💡 ACTUALIZACIÓN SEGURA DE PLATO
+    @Transactional
     public Product updateProduct(UUID id, Product productDetails) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con el id: " + id));
@@ -75,22 +75,19 @@ public class MenuService {
         product.setIsNew(productDetails.getIsNew());
         product.setDiscountBadge(productDetails.getDiscountBadge());
 
+        // Validar y reasignar la categoría si fue modificada
         if (productDetails.getCategory() != null && productDetails.getCategory().getId() != null) {
             Category category = categoryRepository.findById(productDetails.getCategory().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
+                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + productDetails.getCategory().getId()));
             product.setCategory(category);
         }
 
         return productRepository.save(product);
     }
 
-    // 💡 ELIMINACIÓN SEGURA CON TRANSACCIÓN
     @Transactional
     public void deleteProduct(UUID id) {
-        // 1. Eliminar referencias del producto en items de comandas
         orderItemRepository.deleteByProductId(id);
-
-        // 2. Eliminar el plato de la carta
         productRepository.deleteById(id);
     }
 
