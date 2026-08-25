@@ -1,6 +1,7 @@
 package PaoloF16.BeCapstoneFinal.entities;
 
 import PaoloF16.BeCapstoneFinal.enums.TableStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class RestaurantTable {
 
     @Id

@@ -1,14 +1,14 @@
+// src/main/java/PaoloF16/BeCapstoneFinal/service/MenuService.java
 package PaoloF16.BeCapstoneFinal.service;
-
-
 
 import PaoloF16.BeCapstoneFinal.entities.Category;
 import PaoloF16.BeCapstoneFinal.entities.Product;
 import PaoloF16.BeCapstoneFinal.repository.CategoryRepository;
+import PaoloF16.BeCapstoneFinal.repository.OrderItemRepository;
 import PaoloF16.BeCapstoneFinal.repository.ProductRepository;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +22,10 @@ public class MenuService {
     @Autowired
     private ProductRepository productRepository;
 
-    // Métodos para Categorías
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+
+    // --- MÉTODOS DE CATEGORÍAS ---
     public List<Category> getAllCategories() {
         return categoryRepository.findAll();
     }
@@ -31,7 +34,17 @@ public class MenuService {
         return categoryRepository.save(category);
     }
 
-    // Métodos para Productos
+    @Transactional
+    public void deleteCategory(UUID id) {
+        List<Product> products = productRepository.findByCategoryId(id);
+        for (Product p : products) {
+            orderItemRepository.deleteByProductId(p.getId());
+        }
+        productRepository.deleteByCategoryId(id);
+        categoryRepository.deleteById(id);
+    }
+
+    // --- MÉTODOS DE PRODUCTOS ---
     public List<Product> getAllProducts(UUID categoryId) {
         if (categoryId != null) {
             return productRepository.findByCategoryId(categoryId);
@@ -61,12 +74,23 @@ public class MenuService {
         product.setIsGlutenFree(productDetails.getIsGlutenFree());
         product.setIsNew(productDetails.getIsNew());
         product.setDiscountBadge(productDetails.getDiscountBadge());
-        product.setCategory(productDetails.getCategory());
+
+        if (productDetails.getCategory() != null && productDetails.getCategory().getId() != null) {
+            Category category = categoryRepository.findById(productDetails.getCategory().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
+            product.setCategory(category);
+        }
 
         return productRepository.save(product);
     }
 
+    // 💡 ELIMINACIÓN SEGURA CON TRANSACCIÓN
+    @Transactional
     public void deleteProduct(UUID id) {
+        // 1. Eliminar referencias del producto en items de comandas
+        orderItemRepository.deleteByProductId(id);
+
+        // 2. Eliminar el plato de la carta
         productRepository.deleteById(id);
     }
 
@@ -75,15 +99,5 @@ public class MenuService {
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con el id: " + id));
         product.setIsAvailable(isAvailable);
         return productRepository.save(product);
-    }
-
-
-    @Transactional
-    public void deleteCategory(UUID id) {
-        // 1. Primero borras los productos vinculados a esta categoría
-        productRepository.deleteByCategoryId(id);
-
-        // 2. Luego borras la categoría
-        categoryRepository.deleteById(id);
     }
 }

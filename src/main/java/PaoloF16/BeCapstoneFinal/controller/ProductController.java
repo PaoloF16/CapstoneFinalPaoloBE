@@ -35,9 +35,13 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable UUID id) {
-        menuService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteProduct(@PathVariable UUID id) {
+        try {
+            menuService.deleteProduct(id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Error al eliminar el producto: " + e.getMessage()));
+        }
     }
 
     @PatchMapping("/{id}/availability")
