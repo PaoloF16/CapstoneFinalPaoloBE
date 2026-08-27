@@ -158,4 +158,73 @@ public class OrderService {
 
         return activeOrders.get(0);
     }
+    // 💡 CREAR ORDEN DESDE KIOSKO / QR AUTOSERVICIO (Previa confirmación de pago)
+    @Transactional
+    public Order createSelfOrder(Map<String, Object> body) {
+        String orderType = body.getOrDefault("orderType", "TAKEAWAY").toString(); // "DINE_IN" o "TAKEAWAY"
+        UUID tableId = null;
+
+        if (body.containsKey("tableId") && body.get("tableId") != null && !body.get("tableId").toString().isBlank()) {
+            tableId = UUID.fromString(body.get("tableId").toString());
+        }
+
+        RestaurantTable table = null;
+        if (tableId != null) {
+            table = tableRepository.findById(tableId).orElse(null);
+        }
+
+        // Si es para llevar o no seleccionó mesa física, asignamos o creamos la mesa virtual de Takeaway
+        if (table == null) {
+            table = tableRepository.findAll().stream()
+                    .filter(t -> t.getTableNumber() != null && t.getTableNumber() == 999)
+                    .findFirst()
+                    .orElseGet(() -> {
+                        RestaurantTable virtualTable = RestaurantTable.builder()
+                                .tableNumber(999)
+                                .capacity(1)
+                                .status(TableStatus.AVAILABLE)
+                                .build();
+                        return tableRepository.save(virtualTable);
+                    });
+        }
+
+        List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
+        if (items == null || items.isEmpty()) {
+            throw new RuntimeException("El carrito no contiene productos.");
+        }
+
+        Order order = Order.builder()
+                .table(table)
+                .status(OrderStatus.PENDING) // Entra directo a cocina para preparación
+                .subtotal(0.0)
+                .discount(0.0)
+                .total(0.0)
+                .items(new ArrayList<>())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        double subtotal = 0.0;
+        for (Map<String, Object> itemReq : items) {
+            UUID productId = UUID.fromString(itemReq.get("productId").toString());
+            int quantity = Integer.parseInt(itemReq.get("quantity").toString());
+
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + productId));
+
+            OrderItem orderItem = OrderItem.builder()
+                    .order(order)
+                    .product(product)
+                    .quantity(quantity)
+                    .unitPrice(product.getPrice())
+                    .build();
+
+            order.getItems().add(orderItem);
+            subtotal += product.getPrice() * quantity;
+        }
+
+        order.setSubtotal(subtotal);
+        order.setTotal(subtotal);
+
+        return orderRepository.save(order);
+    }
 }

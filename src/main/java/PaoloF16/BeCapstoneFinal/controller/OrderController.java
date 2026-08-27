@@ -63,4 +63,14 @@ public class OrderController {
         orderService.checkoutTableOrders(id, checkoutData != null ? checkoutData : Map.of());
         return ResponseEntity.ok(Map.of("message", "Cuenta cobrada y mesa liberada"));
     }
+    // 💡 Autoservicio / Kiosko / QR: Público, sin requerir token JWT
+    @PostMapping("/self-order")
+    public ResponseEntity<?> createSelfOrder(@RequestBody Map<String, Object> body) {
+        try {
+            Order createdOrder = orderService.createSelfOrder(body);
+            return ResponseEntity.ok(createdOrder);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 }
